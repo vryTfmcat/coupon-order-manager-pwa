@@ -101,8 +101,9 @@ function seedCards() {
     {
       id: createId(),
       type: "voucher",
-      title: "麦当劳午餐团购券",
+      title: "麦当劳午餐套餐券",
       source: "麦当劳",
+      location: "附近门店",
       price: "19.9",
       value: "套餐券",
       validFrom: toDateInputValue(today),
@@ -119,7 +120,7 @@ function seedCards() {
     {
       id: createId(),
       type: "food",
-      title: "土豆",
+      title: "土豆 约 1.5kg",
       source: "菜市场",
       price: "8.5",
       value: "约 1.5kg",
@@ -137,7 +138,7 @@ function seedCards() {
     {
       id: createId(),
       type: "delivery",
-      title: "咖啡豆快递",
+      title: "咖啡豆快递取件",
       source: "快递站",
       price: "",
       value: "取件",
@@ -223,6 +224,8 @@ function renderUnscheduledCards() {
 function renderMiniCard(card) {
   const issues = getCardPassiveIssues(card);
   const tagHtml = (card.tags || []).slice(0, 4).map((tag) => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join("");
+  const locationHtml = renderLocationBadge(card);
+  const primaryIssue = issues[0];
 
   return `
     <article class="mini-card ${card.id === state.selectedCardId ? "is-selected" : ""}"
@@ -233,6 +236,7 @@ function renderMiniCard(card) {
         <div class="card-title">${escapeHtml(card.title || "未命名卡片")}</div>
         <span class="type-pill">${escapeHtml(typeMeta[card.type]?.label || "卡片")}</span>
       </div>
+      ${locationHtml}
       <div class="meta-line">
         <span>${escapeHtml(card.source || "无来源")}</span>
         <span>${formatDateRange(card.validFrom, card.validTo)}</span>
@@ -240,7 +244,7 @@ function renderMiniCard(card) {
       </div>
       <div class="meta-line">
         <span>想用 ${Number(card.desire || 1)}/5</span>
-        ${issues.length ? `<span class="status-pill warning">${escapeHtml(issues[0])}</span>` : `<span class="status-pill">${escapeHtml(statusMeta[card.status] || "未安排")}</span>`}
+        ${primaryIssue ? `<span class="status-pill ${escapeAttribute(primaryIssue.severity)}">${escapeHtml(primaryIssue.message)}</span>` : ""}
       </div>
       <div class="tag-row">${tagHtml}</div>
     </article>
@@ -309,7 +313,8 @@ function renderEventsForCell(date, hour) {
     .map((event, index) => {
       const card = getCard(event.cardId);
       if (!card || !cardMatchesFilters(card)) return "";
-      const issues = getEventIssues(event);
+      const issues = [...getEventIssues(event), ...getCardPassiveIssues(card)];
+      const issueSeverity = getIssueSeverity(issues);
       const startMinutes = toMinutes(event.start);
       const endMinutes = toMinutes(event.end);
       const offset = ((startMinutes % 60) / 60) * 100;
@@ -318,13 +323,14 @@ function renderEventsForCell(date, hour) {
       const top = `calc(${offset}% + ${stackOffset}px)`;
 
       return `
-        <article class="event-chip ${issues.length ? "is-invalid" : ""} ${event.id === state.selectedEventId ? "is-selected" : ""}"
+        <article class="event-chip ${issueSeverity ? `is-${issueSeverity}` : ""} ${event.id === state.selectedEventId ? "is-selected" : ""}"
           data-event-id="${escapeAttribute(event.id)}"
           data-card-id="${escapeAttribute(card.id)}"
           data-type="${escapeAttribute(card.type)}"
           draggable="true"
-          title="${escapeAttribute(issues.join("；") || card.title)}"
+          title="${escapeAttribute(formatIssues(issues) || card.title)}"
           style="top:${top}; height:${duration}px;">
+          ${renderLocationBadge(card)}
           <div class="event-title">${escapeHtml(card.title || "未命名卡片")}</div>
           <div class="event-time">${escapeHtml(event.start)}-${escapeHtml(event.end)}</div>
         </article>
@@ -393,16 +399,17 @@ function renderMonthEvents(events) {
     .map((event) => {
       const card = getCard(event.cardId);
       if (!card || !cardMatchesFilters(card)) return "";
-      const issues = getEventIssues(event);
+      const issues = [...getEventIssues(event), ...getCardPassiveIssues(card)];
+      const issueSeverity = getIssueSeverity(issues);
       return `
-        <article class="month-event ${issues.length ? "is-invalid" : ""} ${event.id === state.selectedEventId ? "is-selected" : ""}"
+        <article class="month-event ${issueSeverity ? `is-${issueSeverity}` : ""} ${event.id === state.selectedEventId ? "is-selected" : ""}"
           data-event-id="${escapeAttribute(event.id)}"
           data-card-id="${escapeAttribute(card.id)}"
           data-type="${escapeAttribute(card.type)}"
           draggable="true"
-          title="${escapeAttribute(issues.join("；") || card.title)}">
+          title="${escapeAttribute(formatIssues(issues) || card.title)}">
           <span class="month-event-time">${escapeHtml(event.start)}</span>
-          <span class="month-event-title">${escapeHtml(card.title || "未命名卡片")}</span>
+          <span class="month-event-title">${escapeHtml(getCardDisplayTitle(card))}</span>
         </article>
       `;
     })
@@ -442,13 +449,15 @@ function renderDetailPanel() {
           <label for="fieldSource">来源</label>
           <input id="fieldSource" name="source" value="${escapeAttribute(card.source || "")}" />
         </div>
+        ${card.type === "voucher" ? `
+          <div class="field">
+            <label for="fieldLocation">地点</label>
+            <input id="fieldLocation" name="location" value="${escapeAttribute(card.location || "")}" placeholder="门店 / 商圈 / 地址" />
+          </div>
+        ` : ""}
         <div class="field">
           <label for="fieldPrice">价格</label>
           <input id="fieldPrice" name="price" value="${escapeAttribute(card.price || "")}" />
-        </div>
-        <div class="field">
-          <label for="fieldValue">内容</label>
-          <input id="fieldValue" name="value" value="${escapeAttribute(card.value || "")}" />
         </div>
         <div class="field">
           <label for="fieldValidFrom">开始日期</label>
@@ -467,7 +476,7 @@ function renderDetailPanel() {
           <input id="fieldUsableEnd" name="usableEnd" type="time" value="${escapeAttribute(card.usableEnd || "23:59")}" />
         </div>
         <div class="field full">
-          <label for="fieldDesire">想使用程度：${Number(card.desire || 1)}/5</label>
+          <label id="fieldDesireLabel" for="fieldDesire">想使用程度：${Number(card.desire || 1)}/5</label>
           <input id="fieldDesire" name="desire" type="range" min="1" max="5" step="1" value="${Number(card.desire || 1)}" />
         </div>
         <div class="field full">
@@ -482,7 +491,7 @@ function renderDetailPanel() {
 
       ${event ? renderEventEditor(event) : ""}
 
-      ${issues.length ? `<div class="issue-list">${issues.map((issue) => `<span class="issue-pill">${escapeHtml(issue)}</span>`).join("")}</div>` : ""}
+      ${issues.length ? `<div class="issue-list">${issues.map((issue) => `<span class="issue-pill ${escapeAttribute(issue.severity)}">${escapeHtml(issue.message)}</span>`).join("")}</div>` : ""}
 
       <div class="detail-actions">
         ${event ? `<button class="text-button" id="unscheduleButton" type="button">取消安排</button>` : ""}
@@ -570,6 +579,7 @@ function updateCardFromInput(cardId, name, value) {
   const patch = {};
   if (name === "desire") {
     patch[name] = Number(value);
+    updateDesireLabel(patch[name]);
   } else if (name === "tags") {
     patch[name] = splitTags(value);
   } else {
@@ -577,7 +587,17 @@ function updateCardFromInput(cardId, name, value) {
   }
   updateCard(cardId, patch, false);
   saveState();
+  if (name === "type") {
+    render();
+    return;
+  }
   renderWithoutDetail();
+}
+
+function updateDesireLabel(value) {
+  const label = document.querySelector("#fieldDesireLabel");
+  if (!label) return;
+  label.textContent = `想使用程度：${Number(value || 1)}/5`;
 }
 
 function updateEventFromInput(eventId, name, value) {
@@ -806,7 +826,8 @@ function addCard() {
     id: createId(),
     type: "voucher",
     title: "新卡片",
-    source: "",
+    source: getDefaultSource(),
+    location: "",
     price: "",
     value: "",
     validFrom: toDateInputValue(today),
@@ -824,6 +845,16 @@ function addCard() {
   state.selectedCardId = card.id;
   state.selectedEventId = null;
   commit();
+}
+
+function getDefaultSource() {
+  const selectedCard = state.selectedCardId ? getCard(state.selectedCardId) : null;
+  if (selectedCard?.source) return selectedCard.source;
+
+  const recentCard = [...state.cards]
+    .filter((card) => card.source)
+    .sort((a, b) => Date.parse(b.updatedAt || b.createdAt || 0) - Date.parse(a.updatedAt || a.createdAt || 0))[0];
+  return recentCard?.source || "";
 }
 
 function exportData() {
@@ -888,8 +919,22 @@ function cardMatchesFilters(card) {
   const search = state.filters.search.trim().toLowerCase();
   const matchesType = state.filters.type === "all" || card.type === state.filters.type;
   const matchesTag = state.filters.tag === "all" || (card.tags || []).includes(state.filters.tag);
-  const haystack = [card.title, card.source, card.value, card.notes, ...(card.tags || [])].join(" ").toLowerCase();
+  const haystack = [card.title, card.source, card.location, card.value, card.notes, ...(card.tags || [])]
+    .join(" ")
+    .toLowerCase();
   return matchesType && matchesTag && (!search || haystack.includes(search));
+}
+
+function getCardDisplayTitle(card) {
+  if (card.type === "voucher" && card.location) {
+    return `${card.location} · ${card.title || "未命名卡片"}`;
+  }
+  return card.title || "未命名卡片";
+}
+
+function renderLocationBadge(card) {
+  if (card.type !== "voucher" || !card.location) return "";
+  return `<div class="location-badge">地点：${escapeHtml(card.location)}</div>`;
 }
 
 function getVisibleDays() {
@@ -928,12 +973,12 @@ function getCardPassiveIssues(card) {
   const issues = [];
   const today = toDateInputValue(new Date());
   if (card.validTo && card.validTo < today && !["used", "discarded"].includes(card.status)) {
-    issues.push(card.type === "food" ? "已过保质期" : "已过期");
+    issues.push(createIssue(card.type === "food" ? "已过保质期" : "已过期", "error"));
   }
   if (card.validTo && card.validTo >= today) {
     const daysLeft = dayDiff(parseDate(today), parseDate(card.validTo));
     if (daysLeft <= 2 && !["used", "discarded"].includes(card.status)) {
-      issues.push(daysLeft === 0 ? "今天截止" : `${daysLeft} 天后截止`);
+      issues.push(createIssue(daysLeft === 0 ? "今天截止" : `${daysLeft} 天后截止`, "warning"));
     }
   }
   return issues;
@@ -941,7 +986,7 @@ function getCardPassiveIssues(card) {
 
 function getEventIssues(event) {
   const card = getCard(event.cardId);
-  if (!card) return ["找不到卡片"];
+  if (!card) return [createIssue("找不到卡片", "error")];
 
   const issues = [];
   const start = toMinutes(event.start);
@@ -949,24 +994,28 @@ function getEventIssues(event) {
   const usableStart = toMinutes(card.usableStart || "00:00");
   const usableEnd = toMinutes(card.usableEnd || "23:59");
 
-  if (event.date < card.validFrom) issues.push("早于有效期");
-  if (event.date > card.validTo) issues.push(card.type === "food" ? "晚于保质期" : "晚于有效期");
-  if (start < usableStart || end > usableEnd) issues.push("不在可用时段");
-  if (end <= start) issues.push("结束时间异常");
-
-  const overlaps = state.events.filter(
-    (other) =>
-      other.id !== event.id &&
-      other.date === event.date &&
-      rangesOverlap(toMinutes(other.start), toMinutes(other.end), start, end),
-  );
-  if (overlaps.length) issues.push("同一时间有冲突");
+  if (event.date < card.validFrom) issues.push(createIssue("早于有效期", "error"));
+  if (event.date > card.validTo) {
+    issues.push(createIssue(card.type === "food" ? "晚于保质期" : "晚于有效期", "error"));
+  }
+  if (start < usableStart || end > usableEnd) issues.push(createIssue("不在可用时段", "error"));
+  if (end <= start) issues.push(createIssue("结束时间异常", "error"));
 
   return issues;
 }
 
-function rangesOverlap(aStart, aEnd, bStart, bEnd) {
-  return aStart < bEnd && bStart < aEnd;
+function createIssue(message, severity) {
+  return { message, severity };
+}
+
+function getIssueSeverity(issues) {
+  if (issues.some((issue) => issue.severity === "error")) return "error";
+  if (issues.some((issue) => issue.severity === "warning")) return "warning";
+  return "";
+}
+
+function formatIssues(issues) {
+  return issues.map((issue) => issue.message).join("；");
 }
 
 function updateSummary() {
