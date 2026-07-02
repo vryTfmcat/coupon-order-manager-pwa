@@ -1,9 +1,9 @@
-const CACHE_NAME = "coupon-order-manager-pwa-v6";
+const CACHE_NAME = "coupon-order-manager-pwa-v12";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=2",
-  "./app.js?v=4",
+  "./styles.css?v=5",
+  "./app.js?v=9",
   "./manifest.webmanifest",
   "./icon.svg",
 ];
