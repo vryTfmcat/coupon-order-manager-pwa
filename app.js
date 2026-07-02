@@ -486,6 +486,7 @@ function renderDetailPanel() {
 
       <div class="detail-actions">
         ${event ? `<button class="text-button" id="unscheduleButton" type="button">取消安排</button>` : ""}
+        <button class="text-button" id="duplicateCardButton" type="button">复制</button>
         <button class="text-button" id="markUsedButton" type="button">已使用</button>
         <button class="text-button" id="restoreButton" type="button">恢复</button>
         <button class="text-button danger-button" id="deleteCardButton" type="button">删除</button>
@@ -536,6 +537,10 @@ function bindDetailForm(card, event) {
 
   document.querySelector("#deleteCardButton").addEventListener("click", () => {
     deleteCard(card.id);
+  });
+
+  document.querySelector("#duplicateCardButton").addEventListener("click", () => {
+    duplicateCard(card.id);
   });
 
   document.querySelector("#markUsedButton").addEventListener("click", () => {
@@ -607,6 +612,28 @@ function deleteCard(cardId) {
     state.selectedCardId = null;
     state.selectedEventId = null;
   }
+  commit();
+}
+
+function duplicateCard(cardId) {
+  const sourceCard = getCard(cardId);
+  if (!sourceCard) return;
+
+  const duplicate = {
+    ...sourceCard,
+    id: createId(),
+    title: `${sourceCard.title || "未命名卡片"} 副本`,
+    tags: [...(sourceCard.tags || [])],
+    status: "unscheduled",
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+
+  const sourceIndex = state.cards.findIndex((card) => card.id === cardId);
+  const insertIndex = sourceIndex >= 0 ? sourceIndex + 1 : 0;
+  state.cards.splice(insertIndex, 0, duplicate);
+  state.selectedCardId = duplicate.id;
+  state.selectedEventId = null;
   commit();
 }
 
