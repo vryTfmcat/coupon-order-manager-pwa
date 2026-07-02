@@ -3,6 +3,7 @@ const STORAGE_KEY = "coupon-order-manager-pwa:v0";
 const typeMeta = {
   redPacket: { label: "红包", color: "#b94a3d" },
   voucher: { label: "团购券", color: "#336a9c" },
+  weeklyActivity: { label: "固定活动", color: "#7b5aa6" },
   food: { label: "食物", color: "#3f7b54" },
   delivery: { label: "快递", color: "#b8792e" },
 };
@@ -153,6 +154,45 @@ function seedCards() {
       createdAt: nowIso(),
       updatedAt: nowIso(),
     },
+    {
+      id: createId(),
+      type: "weeklyActivity",
+      title: "肯德基疯狂星期四",
+      source: "肯德基",
+      location: "附近门店",
+      price: "",
+      value: "每周活动",
+      validFrom: "",
+      validTo: "",
+      usableStart: "10:30",
+      usableEnd: "22:00",
+      repeatWeekday: 4,
+      desire: 3,
+      tags: ["固定活动", "多人吃"],
+      notes: "活动内容每周变化，作为可多次安排的模板卡。",
+      status: "unscheduled",
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    },
+    {
+      id: createId(),
+      type: "voucher",
+      title: "汉堡王周三国王日",
+      source: "汉堡王",
+      location: "某商圈门店",
+      price: "",
+      value: "周三活动",
+      validFrom: toDateInputValue(today),
+      validTo: toDateInputValue(inFiveDays),
+      usableStart: "10:00",
+      usableEnd: "21:00",
+      desire: 4,
+      tags: ["周三", "活动价"],
+      notes: "示例地点已模糊，实际使用时可改成具体门店。",
+      status: "unscheduled",
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    },
   ];
 }
 
@@ -203,7 +243,7 @@ function renderFilters() {
 function renderUnscheduledCards() {
   const scheduledIds = new Set(state.events.map((event) => event.cardId));
   const cards = getFilteredCards().filter(
-    (card) => !scheduledIds.has(card.id) && !["used", "discarded"].includes(card.status),
+    (card) => (isRecurringCard(card) || !scheduledIds.has(card.id)) && !["used", "discarded"].includes(card.status),
   );
 
   el.inboxCount.textContent = String(cards.length);
@@ -225,12 +265,14 @@ function renderMiniCard(card) {
   const issues = getCardPassiveIssues(card);
   const tagHtml = (card.tags || []).slice(0, 4).map((tag) => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join("");
   const locationHtml = renderLocationBadge(card);
+  const repeatHtml = getRepeatLabel(card);
   const primaryIssue = issues[0];
 
   return `
     <article class="mini-card ${card.id === state.selectedCardId ? "is-selected" : ""}"
       data-card-id="${escapeAttribute(card.id)}"
       data-type="${escapeAttribute(card.type)}"
+      data-status="${escapeAttribute(card.status || "unscheduled")}"
       draggable="true">
       <div class="card-title-row">
         <div class="card-title">${escapeHtml(card.title || "未命名卡片")}</div>
@@ -239,11 +281,11 @@ function renderMiniCard(card) {
       ${locationHtml}
       <div class="meta-line">
         <span>${escapeHtml(card.source || "无来源")}</span>
-        <span>${formatDateRange(card.validFrom, card.validTo)}</span>
+        ${isRecurringCard(card) ? `<span>${escapeHtml(repeatHtml || "每周活动")}</span>` : `<span>${formatDateRange(card.validFrom, card.validTo)}</span>`}
         <span>${escapeHtml(card.usableStart || "00:00")}-${escapeHtml(card.usableEnd || "24:00")}</span>
       </div>
       <div class="meta-line">
-        <span>想用 ${Number(card.desire || 1)}/5</span>
+        ${isRecurringCard(card) ? `<span>活动模板</span>` : `<span>想用 ${Number(card.desire || 1)}/5</span>`}
         ${primaryIssue ? `<span class="status-pill ${escapeAttribute(primaryIssue.severity)}">${escapeHtml(primaryIssue.message)}</span>` : ""}
       </div>
       <div class="tag-row">${tagHtml}</div>
@@ -323,11 +365,12 @@ function renderEventsForCell(date, hour) {
       const top = `calc(${offset}% + ${stackOffset}px)`;
 
       return `
-        <article class="event-chip ${issueSeverity ? `is-${issueSeverity}` : ""} ${event.id === state.selectedEventId ? "is-selected" : ""}"
+        <article class="event-chip ${issueSeverity ? `is-${issueSeverity}` : ""} ${event.status === "used" || card.status === "used" ? "is-used" : ""} ${event.id === state.selectedEventId ? "is-selected" : ""}"
           data-event-id="${escapeAttribute(event.id)}"
           data-card-id="${escapeAttribute(card.id)}"
           data-type="${escapeAttribute(card.type)}"
-          draggable="true"
+          data-status="${escapeAttribute(event.status || "")}"
+          draggable="${event.status === "used" ? "false" : "true"}"
           title="${escapeAttribute(formatIssues(issues) || card.title)}"
           style="top:${top}; height:${duration}px;">
           ${renderLocationBadge(card)}
@@ -402,11 +445,12 @@ function renderMonthEvents(events) {
       const issues = [...getEventIssues(event), ...getCardPassiveIssues(card)];
       const issueSeverity = getIssueSeverity(issues);
       return `
-        <article class="month-event ${issueSeverity ? `is-${issueSeverity}` : ""} ${event.id === state.selectedEventId ? "is-selected" : ""}"
+        <article class="month-event ${issueSeverity ? `is-${issueSeverity}` : ""} ${event.status === "used" || card.status === "used" ? "is-used" : ""} ${event.id === state.selectedEventId ? "is-selected" : ""}"
           data-event-id="${escapeAttribute(event.id)}"
           data-card-id="${escapeAttribute(card.id)}"
           data-type="${escapeAttribute(card.type)}"
-          draggable="true"
+          data-status="${escapeAttribute(event.status || "")}"
+          draggable="${event.status === "used" ? "false" : "true"}"
           title="${escapeAttribute(formatIssues(issues) || card.title)}">
           <span class="month-event-time">${escapeHtml(event.start)}</span>
           <span class="month-event-title">${escapeHtml(getCardDisplayTitle(card))}</span>
@@ -424,7 +468,7 @@ function renderDetailPanel() {
     return;
   }
 
-  const event = state.selectedEventId ? getEvent(state.selectedEventId) : getEventByCardId(card.id);
+  const event = state.selectedEventId ? getEvent(state.selectedEventId) : isRecurringCard(card) ? null : getEventByCardId(card.id);
   const eventIssues = event ? getEventIssues(event) : [];
   const passiveIssues = getCardPassiveIssues(card);
   const issues = [...eventIssues, ...passiveIssues];
@@ -449,24 +493,36 @@ function renderDetailPanel() {
           <label for="fieldSource">来源</label>
           <input id="fieldSource" name="source" value="${escapeAttribute(card.source || "")}" />
         </div>
-        ${card.type === "voucher" ? `
+        ${["voucher", "weeklyActivity"].includes(card.type) ? `
           <div class="field">
             <label for="fieldLocation">地点</label>
             <input id="fieldLocation" name="location" value="${escapeAttribute(card.location || "")}" placeholder="门店 / 商圈 / 地址" />
+          </div>
+        ` : ""}
+        ${card.type === "weeklyActivity" ? `
+          <div class="field">
+            <label for="fieldRepeatWeekday">每周重复</label>
+            <select id="fieldRepeatWeekday" name="repeatWeekday">
+              ${dayNames.map((name, index) => `
+                <option value="${index}" ${Number(card.repeatWeekday ?? new Date().getDay()) === index ? "selected" : ""}>${escapeHtml(name)}</option>
+              `).join("")}
+            </select>
           </div>
         ` : ""}
         <div class="field">
           <label for="fieldPrice">价格</label>
           <input id="fieldPrice" name="price" value="${escapeAttribute(card.price || "")}" />
         </div>
-        <div class="field">
-          <label for="fieldValidFrom">开始日期</label>
-          <input id="fieldValidFrom" name="validFrom" type="date" value="${escapeAttribute(card.validFrom || "")}" />
-        </div>
-        <div class="field">
-          <label for="fieldValidTo">截止日期</label>
-          <input id="fieldValidTo" name="validTo" type="date" value="${escapeAttribute(card.validTo || "")}" />
-        </div>
+        ${card.type !== "weeklyActivity" ? `
+          <div class="field">
+            <label for="fieldValidFrom">开始日期</label>
+            <input id="fieldValidFrom" name="validFrom" type="date" value="${escapeAttribute(card.validFrom || "")}" />
+          </div>
+          <div class="field">
+            <label for="fieldValidTo">截止日期</label>
+            <input id="fieldValidTo" name="validTo" type="date" value="${escapeAttribute(card.validTo || "")}" />
+          </div>
+        ` : ""}
         <div class="field">
           <label for="fieldUsableStart">可用开始</label>
           <input id="fieldUsableStart" name="usableStart" type="time" value="${escapeAttribute(card.usableStart || "00:00")}" />
@@ -475,10 +531,12 @@ function renderDetailPanel() {
           <label for="fieldUsableEnd">可用结束</label>
           <input id="fieldUsableEnd" name="usableEnd" type="time" value="${escapeAttribute(card.usableEnd || "23:59")}" />
         </div>
-        <div class="field full">
-          <label id="fieldDesireLabel" for="fieldDesire">想使用程度：${Number(card.desire || 1)}/5</label>
-          <input id="fieldDesire" name="desire" type="range" min="1" max="5" step="1" value="${Number(card.desire || 1)}" />
-        </div>
+        ${card.type !== "weeklyActivity" ? `
+          <div class="field full">
+            <label id="fieldDesireLabel" for="fieldDesire">想使用程度：${Number(card.desire || 1)}/5</label>
+            <input id="fieldDesire" name="desire" type="range" min="1" max="5" step="1" value="${Number(card.desire || 1)}" />
+          </div>
+        ` : ""}
         <div class="field full">
           <label for="fieldTags">标签</label>
           <input id="fieldTags" name="tags" value="${escapeAttribute((card.tags || []).join("，"))}" />
@@ -496,7 +554,7 @@ function renderDetailPanel() {
       <div class="detail-actions">
         ${event ? `<button class="text-button" id="unscheduleButton" type="button">取消安排</button>` : ""}
         <button class="text-button" id="duplicateCardButton" type="button">复制</button>
-        <button class="text-button" id="markUsedButton" type="button">已使用</button>
+        ${!isRecurringCard(card) || event ? `<button class="text-button" id="markUsedButton" type="button">已使用</button>` : ""}
         <button class="text-button" id="restoreButton" type="button">恢复</button>
         <button class="text-button danger-button" id="deleteCardButton" type="button">删除</button>
       </div>
@@ -552,15 +610,24 @@ function bindDetailForm(card, event) {
     duplicateCard(card.id);
   });
 
-  document.querySelector("#markUsedButton").addEventListener("click", () => {
-    updateCard(card.id, { status: "used" });
-    state.events = state.events.filter((item) => item.cardId !== card.id);
+  document.querySelector("#markUsedButton")?.addEventListener("click", () => {
+    if (event) {
+      event.status = "used";
+      if (!isRecurringCard(card)) {
+        updateCard(card.id, { status: "used" }, false);
+      }
+    } else {
+      updateCard(card.id, { status: "used" }, false);
+    }
     state.selectedEventId = null;
     commit();
   });
 
   document.querySelector("#restoreButton").addEventListener("click", () => {
-    updateCard(card.id, { status: getEventByCardId(card.id) ? "scheduled" : "unscheduled" });
+    if (event) {
+      event.status = "";
+    }
+    updateCard(card.id, { status: isRecurringCard(card) ? "unscheduled" : getEventByCardId(card.id) ? "scheduled" : "unscheduled" });
     commit();
   });
 
@@ -580,8 +647,14 @@ function updateCardFromInput(cardId, name, value) {
   if (name === "desire") {
     patch[name] = Number(value);
     updateDesireLabel(patch[name]);
+  } else if (name === "repeatWeekday") {
+    patch[name] = Number(value);
   } else if (name === "tags") {
     patch[name] = splitTags(value);
+  } else if (name === "type" && value === "weeklyActivity") {
+    patch[name] = value;
+    patch.repeatWeekday = getCard(cardId)?.repeatWeekday ?? new Date().getDay();
+    patch.status = "unscheduled";
   } else {
     patch[name] = value;
   }
@@ -658,11 +731,19 @@ function duplicateCard(cardId) {
 }
 
 function handleCardDragStart(event) {
+  if (event.currentTarget.dataset.status === "used") {
+    event.preventDefault();
+    return;
+  }
   event.dataTransfer.setData("text/plain", JSON.stringify({ kind: "card", id: event.currentTarget.dataset.cardId }));
   event.dataTransfer.effectAllowed = "move";
 }
 
 function handleEventDragStart(event) {
+  if (event.currentTarget.dataset.status === "used") {
+    event.preventDefault();
+    return;
+  }
   event.dataTransfer.setData("text/plain", JSON.stringify({ kind: "event", id: event.currentTarget.dataset.eventId }));
   event.dataTransfer.effectAllowed = "move";
 }
@@ -771,9 +852,9 @@ function handleMonthCellClick(event) {
 
 function scheduleCard(cardId, date, start, end) {
   const card = getCard(cardId);
-  if (!card) return;
+  if (!card || ["used", "discarded"].includes(card.status)) return;
 
-  const existing = getEventByCardId(cardId);
+  const existing = isRecurringCard(card) ? null : getEventByCardId(cardId);
   if (existing) {
     Object.assign(existing, { date, start, end });
     state.selectedEventId = existing.id;
@@ -787,18 +868,18 @@ function scheduleCard(cardId, date, start, end) {
       createdAt: nowIso(),
     };
     state.events.push(event);
-    state.selectedEventId = event.id;
+    state.selectedEventId = isRecurringCard(card) ? null : event.id;
   }
 
   state.selectedCardId = cardId;
-  card.status = "scheduled";
+  card.status = isRecurringCard(card) ? "unscheduled" : "scheduled";
   card.updatedAt = nowIso();
   commit();
 }
 
 function moveEvent(eventId, date, start, end) {
   const event = getEvent(eventId);
-  if (!event) return;
+  if (!event || event.status === "used") return;
   Object.assign(event, { date, start, end });
   state.selectedEventId = eventId;
   state.selectedCardId = event.cardId;
@@ -807,7 +888,8 @@ function moveEvent(eventId, date, start, end) {
 
 function selectCard(cardId) {
   state.selectedCardId = cardId;
-  const selectedEvent = getEventByCardId(cardId);
+  const card = getCard(cardId);
+  const selectedEvent = isRecurringCard(card) ? null : getEventByCardId(cardId);
   state.selectedEventId = selectedEvent?.id || null;
   commit(false);
 }
@@ -919,22 +1001,31 @@ function cardMatchesFilters(card) {
   const search = state.filters.search.trim().toLowerCase();
   const matchesType = state.filters.type === "all" || card.type === state.filters.type;
   const matchesTag = state.filters.tag === "all" || (card.tags || []).includes(state.filters.tag);
-  const haystack = [card.title, card.source, card.location, card.value, card.notes, ...(card.tags || [])]
+  const haystack = [card.title, card.source, card.location, card.value, getRepeatLabel(card), card.notes, ...(card.tags || [])]
     .join(" ")
     .toLowerCase();
   return matchesType && matchesTag && (!search || haystack.includes(search));
 }
 
 function getCardDisplayTitle(card) {
-  if (card.type === "voucher" && card.location) {
+  if (["voucher", "weeklyActivity"].includes(card.type) && card.location) {
     return `${card.location} · ${card.title || "未命名卡片"}`;
   }
   return card.title || "未命名卡片";
 }
 
 function renderLocationBadge(card) {
-  if (card.type !== "voucher" || !card.location) return "";
+  if (!["voucher", "weeklyActivity"].includes(card.type) || !card.location) return "";
   return `<div class="location-badge">地点：${escapeHtml(card.location)}</div>`;
+}
+
+function getRepeatLabel(card) {
+  if (!isRecurringCard(card)) return "";
+  return `每${dayNames[Number(card.repeatWeekday)] || ""}`;
+}
+
+function isRecurringCard(card) {
+  return card?.type === "weeklyActivity" && card.repeatWeekday !== undefined && card.repeatWeekday !== "";
 }
 
 function getVisibleDays() {
@@ -971,6 +1062,7 @@ function getEventByCardId(cardId) {
 
 function getCardPassiveIssues(card) {
   const issues = [];
+  if (card.type === "weeklyActivity") return issues;
   const today = toDateInputValue(new Date());
   if (card.validTo && card.validTo < today && !["used", "discarded"].includes(card.status)) {
     issues.push(createIssue(card.type === "food" ? "已过保质期" : "已过期", "error"));
@@ -987,6 +1079,9 @@ function getCardPassiveIssues(card) {
 function getEventIssues(event) {
   const card = getCard(event.cardId);
   if (!card) return [createIssue("找不到卡片", "error")];
+  if (card.type === "weeklyActivity") {
+    return toMinutes(event.end) <= toMinutes(event.start) ? [createIssue("结束时间异常", "error")] : [];
+  }
 
   const issues = [];
   const start = toMinutes(event.start);

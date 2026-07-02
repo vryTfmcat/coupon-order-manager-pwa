@@ -84,12 +84,12 @@ button {
 .brand-mark {
   width: 44px;
   height: 44px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  color: #ffffff;
-  background: linear-gradient(135deg, var(--red), var(--accent));
-  font-weight: 800;
+  flex: 0 0 auto;
+  display: block;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #ffffff;
+  box-shadow: 0 6px 16px rgba(52, 39, 21, 0.16);
 }
 
 h1,
@@ -280,6 +280,16 @@ h2 {
   outline-offset: 2px;
 }
 
+.event-chip.is-used,
+.month-event.is-used {
+  border-color: #c8c4ba;
+  border-left-color: #9b9589;
+  color: #6f6a60;
+  background: #ebe7df;
+  box-shadow: none;
+  opacity: 0.78;
+}
+
 .card-title-row {
   display: flex;
   align-items: flex-start;
@@ -322,6 +332,12 @@ h2 {
   color: var(--red);
   border-color: rgba(185, 74, 61, 0.42);
   background: rgba(185, 74, 61, 0.08);
+}
+
+.status-pill.used {
+  color: #676158;
+  border-color: #c8c4ba;
+  background: #e0dcd4;
 }
 
 .location-badge {
@@ -693,6 +709,10 @@ h2 {
 
 [data-type="voucher"] {
   border-left-color: var(--blue);
+}
+
+[data-type="weeklyActivity"] {
+  border-left-color: #7b5aa6;
 }
 
 [data-type="food"] {

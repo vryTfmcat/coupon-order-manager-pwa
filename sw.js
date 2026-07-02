@@ -1,11 +1,11 @@
-const CACHE_NAME = "coupon-order-manager-pwa-v12";
+const CACHE_NAME = "coupon-order-manager-pwa-v22";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=5",
-  "./app.js?v=9",
+  "./styles.css?v=9",
+  "./app.js?v=15",
   "./manifest.webmanifest",
-  "./icon.svg",
+  "./app-icon.png",
 ];
 
 self.addEventListener("install", (event) => {
