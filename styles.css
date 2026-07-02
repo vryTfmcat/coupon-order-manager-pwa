@@ -222,6 +222,10 @@ h2 {
   gap: 12px;
 }
 
+.inbox-strip {
+  min-width: 0;
+}
+
 .section-heading {
   display: flex;
   align-items: center;
@@ -233,12 +237,14 @@ h2 {
 }
 
 .card-rail {
-  min-height: 132px;
+  min-height: 126px;
+  max-height: 264px;
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(220px, 260px);
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  align-content: start;
   gap: 10px;
-  overflow-x: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 12px;
   scrollbar-gutter: stable;
 }
@@ -252,10 +258,10 @@ h2 {
 }
 
 .mini-card {
-  min-height: 106px;
+  min-height: 96px;
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 6px;
   padding: 10px;
   user-select: none;
 }
@@ -305,10 +311,34 @@ h2 {
 }
 
 .status-pill.warning,
-.issue-pill {
+.issue-pill.warning {
+  color: #8a5a14;
+  border-color: rgba(184, 121, 46, 0.48);
+  background: rgba(184, 121, 46, 0.12);
+}
+
+.status-pill.error,
+.issue-pill.error {
   color: var(--red);
   border-color: rgba(185, 74, 61, 0.42);
   background: rgba(185, 74, 61, 0.08);
+}
+
+.location-badge {
+  width: fit-content;
+  max-width: 100%;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(36, 95, 115, 0.38);
+  border-radius: 6px;
+  color: var(--accent-strong);
+  background: #eaf2f0;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .meta-line {
@@ -426,7 +456,13 @@ h2 {
   box-shadow: 0 6px 18px rgba(40, 34, 21, 0.13);
 }
 
-.event-chip.is-invalid {
+.event-chip.is-warning {
+  border-color: rgba(184, 121, 46, 0.58);
+  border-left-color: var(--amber);
+  background: #fff8e8;
+}
+
+.event-chip.is-error {
   border-color: rgba(185, 74, 61, 0.58);
   border-left-color: var(--red);
   background: #fff4f1;
@@ -437,6 +473,14 @@ h2 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.event-chip .location-badge {
+  max-width: 100%;
+  min-height: 18px;
+  margin-bottom: 2px;
+  padding: 1px 5px;
+  font-size: 11px;
 }
 
 .event-time {
@@ -532,7 +576,13 @@ h2 {
   outline-offset: 1px;
 }
 
-.month-event.is-invalid {
+.month-event.is-warning {
+  border-color: rgba(184, 121, 46, 0.58);
+  border-left-color: var(--amber);
+  background: #fff8e8;
+}
+
+.month-event.is-error {
   border-color: rgba(185, 74, 61, 0.58);
   border-left-color: var(--red);
   background: #fff4f1;
@@ -698,6 +748,11 @@ h2 {
 
   .text-button {
     padding-inline: 10px;
+  }
+
+  .card-rail {
+    grid-template-columns: 1fr;
+    max-height: 320px;
   }
 
   .calendar-scroll {
