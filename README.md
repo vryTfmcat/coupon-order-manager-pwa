@@ -1,3 +1,4 @@
+A PWA tool to plan, track, and manage coupon expiration dates with a calendar view.
 # 券食日历原型
 
 在线体验：[coupon-order-manager-pwa.vercel.app](https://coupon-order-manager-pwa.vercel.app/)
