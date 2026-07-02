@@ -2,7 +2,7 @@
 
 在线体验：[coupon-order-manager-pwa.vercel.app](https://coupon-order-manager-pwa.vercel.app/)
 
-![券食日历使用示例](./截屏2026-07-03 04.31.23.jpg)
+![券食日历使用示例](./截屏2026-07-03%2004.26.28.png)
 
 这是根据 `优惠券订单管理系统框架0.md` 做的第一版 Web/PWA 原型。
 
